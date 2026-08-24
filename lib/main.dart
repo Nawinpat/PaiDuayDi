@@ -1,21 +1,13 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'core/theme/app_theme.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Set status bar icons and navigation bar style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(const PaiDuayDiApp());
 }
 
@@ -27,7 +19,10 @@ class PaiDuayDiApp extends StatelessWidget {
     return MaterialApp(
       title: 'PaiDuayDi',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'IBMPlexSansThai',
+      ),
       home: const SplashScreen(),
     );
   }

@@ -26,7 +26,7 @@ class SocialAuthButton extends StatelessWidget {
           'assets/icons/facebook_icon.png',
           width: 26,
           height: 26,
-          errorBuilder: (_, __, ___) => Container(
+          errorBuilder: (_, _, _) => Container(
             width: 26,
             height: 26,
             decoration: const BoxDecoration(
@@ -68,7 +68,7 @@ class SocialAuthButton extends StatelessWidget {
           width: 22,
           height: 22,
           color: Colors.black87,
-          errorBuilder: (_, __, ___) => const Icon(
+          errorBuilder: (_, _, _) => const Icon(
             Icons.phone,
             color: Colors.black87,
             size: 22,

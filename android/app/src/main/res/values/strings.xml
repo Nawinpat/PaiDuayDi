@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PaiDuayDi</string>
+    <string name="facebook_app_id">27926583750285274</string>
+    <string name="fb_login_protocol_scheme">fb27926583750285274</string>
+    <string name="facebook_client_token">faeb1a218e4c2bc7acfcca585f0e5c70</string>
+</resources>

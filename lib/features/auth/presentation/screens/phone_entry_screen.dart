@@ -2,6 +2,7 @@
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/services/phone_auth_service.dart';
 import 'otp_verification_screen.dart';
 
 class PhoneEntryScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final String _selectedCountryCode = '+66';
   bool _isButtonEnabled = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -35,27 +37,54 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
     });
   }
 
-  void _onContinue() {
-    if (!_isButtonEnabled) return;
-    final rawPhone = _phoneController.text.trim();
-    final formattedPhone = '$_selectedCountryCode $rawPhone';
+  Future<void> _onContinue() async {
+    if (!_isButtonEnabled || _isLoading) return;
 
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            OtpVerificationScreen(phoneNumber: formattedPhone),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOut;
-          var tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-      ),
+    setState(() => _isLoading = true);
+
+    // Format phone: 081-xxx-xxxx -> +66 81xxxxxxx
+    var rawDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (rawDigits.startsWith('0')) rawDigits = rawDigits.substring(1);
+    final formattedPhone = '$_selectedCountryCode$rawDigits';
+
+    await PhoneAuthService.sendOtp(
+      phoneNumber: formattedPhone,
+      onCodeSent: (verificationId) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        Navigator.of(context).push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                OtpVerificationScreen(
+              phoneNumber: formattedPhone,
+              verificationId: verificationId,
+            ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOut;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              return SlideTransition(
+                position: animation.drive(tween),
+                child: child,
+              );
+            },
+          ),
+        );
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: Colors.red.shade600,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      },
     );
   }
 
@@ -101,7 +130,9 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _isButtonEnabled ? AppColors.primary : AppColors.border,
+                    color: _isButtonEnabled
+                        ? AppColors.primary
+                        : AppColors.border,
                     width: 1.5,
                   ),
                   boxShadow: [
@@ -119,7 +150,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                           horizontal: 14, vertical: 15),
                       decoration: const BoxDecoration(
                         border: Border(
-                          right: BorderSide(color: AppColors.border, width: 1),
+                          right:
+                              BorderSide(color: AppColors.border, width: 1),
                         ),
                       ),
                       child: Row(
@@ -138,7 +170,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                                 Expanded(child: Container(color: Colors.white)),
                                 Expanded(
                                     flex: 2,
-                                    child: Container(color: Colors.blue.shade900)),
+                                    child: Container(
+                                        color: Colors.blue.shade900)),
                                 Expanded(child: Container(color: Colors.white)),
                                 Expanded(child: Container(color: Colors.red)),
                               ],
@@ -200,9 +233,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                         height: 1.5,
                       ),
                       children: const [
-                        TextSpan(
-                            text:
-                                'การเข้าสู่ระบบแสดงว่าคุณยอมรับ '),
+                        TextSpan(text: 'การเข้าสู่ระบบแสดงว่าคุณยอมรับ '),
                         TextSpan(
                           text: 'ข้อกำหนดและเงื่อนไข',
                           style: TextStyle(
@@ -241,15 +272,26 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                       borderRadius: BorderRadius.circular(28),
                     ),
                   ),
-                  onPressed: _isButtonEnabled ? _onContinue : null,
-                  child: Text(
-                    'ดำเนินการต่อ',
-                    style: AppTypography.heading3.copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                  onPressed: (_isButtonEnabled && !_isLoading)
+                      ? _onContinue
+                      : null,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Text(
+                          'ดำเนินการต่อ',
+                          style: AppTypography.heading3.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 24),

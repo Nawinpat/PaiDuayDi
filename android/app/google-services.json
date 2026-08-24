@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1060096667913",
+    "project_id": "paiduaydi",
+    "storage_bucket": "paiduaydi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1060096667913:android:d3b9b22bcb3229b19d23d8",
+        "android_client_info": {
+          "package_name": "com.paiduaydi.paiduaydi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC53bIlbSXHADx-92NPntsxBaJRnAFIpR8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

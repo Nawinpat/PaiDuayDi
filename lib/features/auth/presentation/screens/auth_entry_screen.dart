@@ -1,18 +1,30 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/models/user_model.dart';
+import '../../data/services/facebook_auth_service.dart';
+import '../../data/services/google_auth_service.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/social_auth_button.dart';
 import 'phone_entry_screen.dart';
+import 'home_screen.dart';
 
-class AuthEntryScreen extends StatelessWidget {
+class AuthEntryScreen extends StatefulWidget {
   const AuthEntryScreen({super.key});
+
+  @override
+  State<AuthEntryScreen> createState() => _AuthEntryScreenState();
+}
+
+class _AuthEntryScreenState extends State<AuthEntryScreen> {
+  bool _isGoogleLoading = false;
+  bool _isFacebookLoading = false;
 
   void _onSocialLogin(BuildContext context, String provider) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'เข้าสู่ระบบด้วย $provider',
+          'เร็วๆ นี้: เข้าสู่ระบบด้วย $provider',
           style: AppTypography.bodyMedium.copyWith(color: Colors.white),
         ),
         backgroundColor: AppColors.primary,
@@ -21,7 +33,82 @@ class AuthEntryScreen extends StatelessWidget {
     );
   }
 
-  void _onPhoneLogin(BuildContext context) {
+  Future<void> _onFacebookLogin() async {
+    setState(() => _isFacebookLoading = true);
+    try {
+      final user = await FacebookAuthService.signIn();
+      if (!mounted) return;
+      if (user != null) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, animation, _) => HomeScreen(user: user),
+            transitionsBuilder: (_, animation, _, child) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'เข้าสู่ระบบ Facebook ไม่สำเร็จ: ${e.toString()}',
+            style: AppTypography.bodyMedium.copyWith(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isFacebookLoading = false);
+    }
+  }
+
+  Future<void> _onGoogleLogin() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final account = await GoogleAuthService.signIn();
+      if (!mounted) return;
+      if (account != null) {
+        final user = AppUser(
+          id: account.id,
+          name: account.displayName ?? 'Google User',
+          email: account.email,
+          photoUrl: account.photoUrl,
+          provider: 'google',
+        );
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, animation, _) => HomeScreen(user: user),
+            transitionsBuilder: (_, animation, _, child) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'เข้าสู่ระบบ Google ไม่สำเร็จ: ${e.toString()}',
+            style: AppTypography.bodyMedium.copyWith(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  void _onPhoneLogin() {
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -74,20 +161,63 @@ class AuthEntryScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(flex: 2),
-              // Social Auth Buttons List
-              SocialAuthButton(
-                type: AuthButtonType.facebook,
-                onTap: () => _onSocialLogin(context, 'Facebook'),
-              ),
-              SocialAuthButton(
-                type: AuthButtonType.google,
-                onTap: () => _onSocialLogin(context, 'Google'),
-              ),
+              // Facebook Auth Button with loading state
+              _isFacebookLoading
+                  ? Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: AppColors.border, width: 1.2),
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.facebookBlue),
+                          ),
+                        ),
+                      ),
+                    )
+                  : SocialAuthButton(
+                      type: AuthButtonType.facebook,
+                      onTap: _onFacebookLogin,
+                    ),
+              // Google Sign-In with loading state
+              _isGoogleLoading
+                  ? Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: AppColors.border, width: 1.2),
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.primary),
+                          ),
+                        ),
+                      ),
+                    )
+                  : SocialAuthButton(
+                      type: AuthButtonType.google,
+                      onTap: _onGoogleLogin,
+                    ),
               SocialAuthButton(
                 type: AuthButtonType.apple,
                 onTap: () => _onSocialLogin(context, 'Apple'),
               ),
-              // Divider or label
+              // Divider
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
@@ -112,7 +242,7 @@ class AuthEntryScreen extends StatelessWidget {
               ),
               SocialAuthButton(
                 type: AuthButtonType.phone,
-                onTap: () => _onPhoneLogin(context),
+                onTap: _onPhoneLogin,
               ),
               const SizedBox(height: 24),
             ],

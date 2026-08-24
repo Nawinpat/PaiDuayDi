@@ -1,16 +1,20 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../data/services/phone_auth_service.dart';
 import '../widgets/otp_pin_field.dart';
+import 'home_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
+  final String verificationId;
 
   const OtpVerificationScreen({
     super.key,
     required this.phoneNumber,
+    required this.verificationId,
   });
 
   @override
@@ -19,10 +23,11 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   String _otpCode = '';
-  int _countdownSeconds = 58;
+  int _countdownSeconds = 60;
   Timer? _timer;
   bool _canResend = false;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -38,19 +43,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   void _startTimer() {
     setState(() {
-      _countdownSeconds = 58;
+      _countdownSeconds = 60;
       _canResend = false;
     });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdownSeconds > 0) {
-        setState(() {
-          _countdownSeconds--;
-        });
+        if (mounted) setState(() => _countdownSeconds--);
       } else {
-        setState(() {
-          _canResend = true;
-        });
+        if (mounted) setState(() => _canResend = true);
         timer.cancel();
       }
     });
@@ -62,24 +63,59 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     return '$minutes:$seconds';
   }
 
-  void _onVerify() {
-    if (_otpCode.length < 6) return;
+  Future<void> _onResendOtp() async {
+    if (!_canResend) return;
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
+    await PhoneAuthService.sendOtp(
+      phoneNumber: widget.phoneNumber,
+      onCodeSent: (newVerificationId) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        _startTimer();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('ส่งรหัส OTP ใหม่เรียบร้อยแล้ว'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = error;
+        });
+      },
+    );
+  }
+
+  Future<void> _onVerify() async {
+    if (_otpCode.length < 6 || _isLoading) return;
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+    try {
+      final user = await PhoneAuthService.verifyOtp(
+        smsCode: _otpCode,
+        verificationId: widget.verificationId,
+      );
 
-      // Show success modal bottom sheet or dialog
+      if (!mounted) return;
+
+      // Show success dialog then navigate
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
+        builder: (dialogCtx) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -128,11 +164,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.of(context).pop(); // dismiss dialog
+                    Navigator.of(dialogCtx).pop();
+                    if (user != null) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        PageRouteBuilder(
+                          pageBuilder: (_, animation, _) =>
+                              HomeScreen(user: user),
+                          transitionsBuilder: (_, animation, _, child) =>
+                              FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        ),
+                        (route) => false,
+                      );
+                    }
                   },
                   child: Text(
                     'เข้าสู่ระบบ',
-                    style: AppTypography.button,
+                    style: AppTypography.heading3
+                        .copyWith(color: Colors.white, fontSize: 16),
                   ),
                 ),
               ),
@@ -140,7 +191,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           ),
         ),
       );
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -165,7 +223,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              // Header section
               Text(
                 'Verification',
                 style: GoogleFonts.ibmPlexSansThai(
@@ -185,7 +242,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Enter the 6-digit code sent to',
+                'กรุณากรอกรหัส 6 หลักที่ส่งไปยัง',
                 style: AppTypography.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                   fontSize: 15,
@@ -197,32 +254,49 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: AppColors.primary,
                 ),
               ),
-              const SizedBox(height: 36),
-              // 6 PIN Input field
+              const SizedBox(height: 32),
               OtpPinField(
                 length: 6,
                 onChanged: (pin) {
                   setState(() {
                     _otpCode = pin;
+                    _errorMessage = null;
                   });
                 },
                 onCompleted: (pin) {
-                  setState(() {
-                    _otpCode = pin;
-                  });
+                  setState(() => _otpCode = pin);
                   _onVerify();
                 },
               ),
-              const SizedBox(height: 32),
-              // Resend code area
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: Colors.red, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 28),
               Center(
                 child: Column(
                   children: [
                     Text(
-                      "Didn't receive the code?",
+                      'ไม่ได้รับรหัส OTP?',
                       style: AppTypography.titleSmall.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -233,11 +307,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 16,
-                          color: AppColors.textMuted,
-                        ),
+                        const Icon(Icons.access_time_rounded,
+                            size: 16, color: AppColors.textMuted),
                         const SizedBox(width: 6),
                         Text(
                           _formattedTimer,
@@ -248,15 +319,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '|',
-                          style: TextStyle(color: Colors.grey.shade400),
-                        ),
+                        Text('|',
+                            style: TextStyle(color: Colors.grey.shade400)),
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: _canResend ? _startTimer : null,
+                          onTap: _canResend ? _onResendOtp : null,
                           child: Text(
-                            'Resend Code',
+                            'ส่งรหัสใหม่อีกครั้ง',
                             style: AppTypography.titleSmall.copyWith(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -275,7 +344,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ),
               const Spacer(),
-              // Verify CTA Button
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -299,8 +367,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           ),
                         )
                       : Text(
-                          'Verify',
-                          style: GoogleFonts.plusJakartaSans(
+                          'ยืนยันรหัส OTP',
+                          style: AppTypography.heading3.copyWith(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,

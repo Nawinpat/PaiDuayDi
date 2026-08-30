@@ -31,6 +31,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/android/build/
 /coverage/
 
 # Symbolication related
@@ -44,6 +45,13 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 *.apk
+
+# Local API keys and Android SDK configuration
+/android/local.properties
+
+# Firebase Functions generated files and local dependencies
+/functions/lib/
+/functions/node_modules/
 
 
 # Widget Preview related

@@ -1,17 +1,23 @@
-# paiduaydi
+# PaiDuayDi
 
-A new Flutter project.
+Android application for finding compatible travel companions and nearby trips.
 
-## Getting Started
+## Google Maps setup (Android)
 
-This project is a starting point for a Flutter application.
+The Home screen shows Google Maps behind the trip sheet and requests the
+device's location while the app is open.
 
-A few resources to get you started if this is your first Flutter project:
+1. Create a Google Maps Platform API key and enable **Maps SDK for Android**
+   and **Places API (New)**.
+2. Create or update `android/local.properties` (this file is ignored by Git):
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+   ```properties
+   GOOGLE_MAPS_API_KEY=your_android_restricted_key
+   ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. Restrict the key to the Android application ID `com.paiduaydi.paiduaydi`
+   and its signing certificate SHA-1 before distributing the app.
+4. Run `flutter pub get`, then `flutter run` on an Android device/emulator.
+
+No key is stored in this repository. Without it, the app UI will run but Google
+Maps cannot load map tiles.
